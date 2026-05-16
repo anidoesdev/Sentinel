@@ -1,0 +1,6 @@
+pyproject.toml
+sentinel.egg-info/PKG-INFO
+sentinel.egg-info/SOURCES.txt
+sentinel.egg-info/dependency_links.txt
+sentinel.egg-info/requires.txt
+sentinel.egg-info/top_level.txt
