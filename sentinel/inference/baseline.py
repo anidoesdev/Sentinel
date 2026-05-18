@@ -12,13 +12,15 @@ class GaussianAnomalyScorer:
     threshold: float = 3.0
     
     @classmethod
-    def fit(cls, healthy_df: pd.DataFrame, threshold: float = 3.0) -> "GaussianAnomalyScorer":
+    def fit(cls, healthy_df: pd.DataFrame, percentile: float = 99.0) -> "GaussianAnomalyScorer":
         # compute mu, sigma for each sensor_col
         # return instance
         sensor_cols = [col for col in healthy_df.columns if col.startswith("sensor_")]
         mu = {col: healthy_df[col].mean() for col in sensor_cols}
         sigma = {col: healthy_df[col].std() for col in sensor_cols}
-        return cls(sensor_cols=sensor_cols,mu=mu,sigma=sigma,threshold=threshold)
+        scorer = cls(sensor_cols=sensor_cols, mu = mu, sigma = sigma, threshold=0.0)
+        scorer.fit_threshold(healthy_df=healthy_df,percentile=percentile)
+        return scorer
     
     def score(self, df: pd.DataFrame) -> pd.Series:
         # compute z-scores for each sensor, then max(|z|) per row
@@ -26,6 +28,10 @@ class GaussianAnomalyScorer:
         z_scores = [np.abs((df[col]-self.mu[col])/self.sigma[col]) for col in self.sensor_cols]
         z_df = pd.concat(z_scores,axis=1)
         return z_df.max(axis=1)
+    
+    def fit_threshold(self, healthy_df: pd.DataFrame, percentile: float = 99.0) -> None:
+        scores = self.score(healthy_df)
+        self.threshold = np.percentile(scores, percentile)
     
     def predict(self, df: pd.DataFrame) -> pd.Series:
         # return boolean: True if anomalous (score > threshold), False otherwise
