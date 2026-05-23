@@ -14,10 +14,10 @@ class CMAPSSConfig(BaseModel):
     fd_id: int = 1
     drop_cols: list[str] = []
 
-def load_raw(config: CMAPSSConfig) -> pd.DataFrame:
+def load_raw(config: CMAPSSConfig, split: str = "train") -> pd.DataFrame:
     # load train_FD00{fd_id}.txt, assign COLUMNS, return dataframe
     base_path = config.data_dir/"raw"
-    path = base_path/f"train_FD00{config.fd_id}.txt"
+    path = base_path/f"{split}_FD00{config.fd_id}.txt"
     data = pd.read_csv(path,sep=r"\s+",header=None,names=COLUMNS)
     return data
 
