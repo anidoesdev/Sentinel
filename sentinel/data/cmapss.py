@@ -38,8 +38,42 @@ def get_healthy_cycle(df: pd.DataFrame, tail_cycles: int = 30) -> pd.DataFrame:
     max_cycle = df.groupby("unit")["cycle"].transform("max")
     return df[df["cycle"] <= max_cycle - tail_cycles]
 
+def make_windows(df: pd.DataFrame, sensor_cols: list[str], window_size: int = 30) -> np.ndarray:
+    # for each unit, slide a window of size `window_size` with stride 1
+    # return array of shape [num_windows, window_size, len(sensor_cols)]
+    windows = []
+    for _, group in df.groupby("unit"):
+        data = group[sensor_cols].values
+        for i in range(len(data) - window_size + 1):
+            windows.append(data[i : i + window_size])
+    return np.stack(windows)
 
 
+def normalize(df: pd.DataFrame, sensor_cols: list[str], 
+              mean: pd.Series | None = None, 
+              std: pd.Series | None = None) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
+    # if mean/std not provided, compute from df (training mode)
+    # if provided, apply them (inference mode)
+    # return normalized df, mean, std
+    if mean is None:
+        mean = df[sensor_cols].mean()
+    if std is None:
+        std = df[sensor_cols].std()
+        
+    df = df.copy()
+    df[sensor_cols] = (df[sensor_cols] - mean) / std
+    
+    return df,mean,std
+    
+
+
+# config = CMAPSSConfig(data_dir=Path("data"), fd_id=1)
+# df, dropped = drop_low_variance(load_raw(config))
+# sensor_cols = [c for c in df.columns if c.startswith("sensor_") and c not in dropped]
+# healthy = get_healthy_cycle(df)
+# healthy, mean, std = normalize(healthy,sensor_cols)
+# windows = make_windows(healthy, sensor_cols)
+# print(windows.shape)
 
 
 
