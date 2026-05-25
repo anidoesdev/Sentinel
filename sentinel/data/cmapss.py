@@ -49,7 +49,26 @@ def make_windows(df: pd.DataFrame, sensor_cols: list[str], window_size: int = 30
     return np.stack(windows)
 
 
-def normalize(df: pd.DataFrame, sensor_cols: list[str], 
+def add_delta_features(
+    df: pd.DataFrame, sensor_cols: list[str]
+) -> tuple[pd.DataFrame, list[str]]:
+    """Add per-cycle first-difference features, computed per engine unit.
+
+    Gradual degradation is nearly invisible in absolute sensor values — a drift
+    of 0.3 sigma per window looks healthy. But in the delta space, that same
+    drift is a sustained non-zero signal the VAE has never seen in training.
+
+    The first cycle of each unit gets delta=0 (no prior reading).
+    Returns (df_with_deltas, delta_col_names).
+    """
+    out = df.copy()
+    delta_cols = [f"d_{col}" for col in sensor_cols]
+    for col, dcol in zip(sensor_cols, delta_cols):
+        out[dcol] = out.groupby("unit")[col].diff().fillna(0.0)
+    return out, delta_cols
+
+
+def normalize(df: pd.DataFrame, sensor_cols: list[str],
               mean: pd.Series | None = None, 
               std: pd.Series | None = None) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     # if mean/std not provided, compute from df (training mode)
