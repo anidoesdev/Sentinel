@@ -16,6 +16,9 @@ dependencies = [
     "python-dotenv>=1.0",
     "structlog>=24.1",
     "mlflow>=2.10",
+    "torchaudio>=2.2",
+    "transformers>=4.40",
+    "soundfile>=0.12",
 ]
 
 [project.optional-dependencies]

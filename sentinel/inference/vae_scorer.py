@@ -113,7 +113,13 @@ class VAEAnomalyScorer:
         return out
 
     def _score_windows(self, windows: np.ndarray) -> np.ndarray:
-        """Compute per-window MSE reconstruction error.
+        """Compute per-window MSE reconstruction error using deterministic encoding.
+
+        Uses z = mu (mean encoding) instead of sampling z ~ N(mu, sigma).
+        Sampling during inference makes scores stochastic — different calls on
+        identical input produce different errors, which breaks reproducibility.
+        Mean encoding is the standard fix: it uses the encoder's best single
+        estimate of the latent code with no random noise added.
 
         windows: [N, window_size, input_dim]
         returns: [N] array of scalar MSE values
@@ -121,7 +127,11 @@ class VAEAnomalyScorer:
         self.model.eval()
         with torch.no_grad():
             x = torch.tensor(windows, dtype=torch.float32)
-            recon, _, _ = self.model(x)
+            # Encode to get mu; bypass reparameterize() entirely.
+            mu, log_var = self.model.encoder(x)
+            log_var = log_var.clamp(-4, 4)
+            # Decode from mu directly — deterministic, reproducible.
+            recon = self.model.decoder(mu)
             errors = (x - recon).pow(2).mean(dim=(1, 2))
         return errors.numpy()
 
