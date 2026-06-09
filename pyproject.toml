@@ -19,6 +19,9 @@ dependencies = [
     "torchaudio>=2.2",
     "transformers>=4.40",
     "soundfile>=0.12",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

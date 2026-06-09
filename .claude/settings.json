@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir d:\\\\Sentinel\\\\sentinel\\\\serving 2>nul; echo done)"
+    ],
+    "additionalDirectories": [
+      "d:\\Sentinel"
+    ]
+  }
+}
