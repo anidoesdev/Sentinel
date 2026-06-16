@@ -24,6 +24,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "shap>=0.44",
     "matplotlib>=3.8",
+    "evidently>=0.4",
 ]
 
 [project.optional-dependencies]
