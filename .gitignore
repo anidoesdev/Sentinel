@@ -1,1 +1,39 @@
-.venv
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Data — never commit raw or processed datasets
+data/raw/
+data/processed/
+data/mimii/
+
+# Model artifacts — large binary files, not suited for git
+artifacts/
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Secrets
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
