@@ -22,6 +22,8 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "python-multipart>=0.0.9",
+    "shap>=0.44",
+    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
