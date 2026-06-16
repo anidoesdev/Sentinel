@@ -265,3 +265,104 @@ async def ws_timeseries(websocket: WebSocket, unit_id: int) -> None:
     except Exception as e:
         logger.error("WebSocket error for unit %d: %s", unit_id, e)
         await websocket.close(code=1011)
+
+
+# ---------------------------------------------------------------------------
+# WS /ws/replay  — synthetic degradation demo (no live sensors required)
+# ---------------------------------------------------------------------------
+
+# CMAPSS FD001 sensor names (14 kept after dropping low-variance columns)
+_SENSOR_NAMES = [
+    "sensor_2", "sensor_3", "sensor_4", "sensor_7", "sensor_8",
+    "sensor_9", "sensor_11", "sensor_12", "sensor_13", "sensor_14",
+    "sensor_15", "sensor_17", "sensor_20", "sensor_21",
+]
+
+# Which sensors degrade in FD001 (HPC degradation fault mode)
+_DEGRADING_SENSORS = ["sensor_3", "sensor_4", "sensor_7", "sensor_11", "sensor_12"]
+
+
+@app.websocket("/ws/replay")
+async def ws_replay(
+    websocket: WebSocket,
+    speed_ms: int = 400,
+    total_steps: int = 150,
+) -> None:
+    """Streams a synthetic sensor degradation sequence for dashboard demos.
+
+    Phases:
+      Steps   0–40:  healthy operation  (scores stay low)
+      Steps  40–90:  gradual degradation (scores trend up)
+      Steps  90–150: clear anomaly zone  (scores consistently above threshold)
+
+    Uses the real VAE scorer if loaded. Falls back to a simulated score
+    that follows the same degradation pattern — so the demo works even
+    before the VAE checkpoint exists.
+
+    Query params:
+      speed_ms    — milliseconds between readings (default 400)
+      total_steps — how many readings to emit before looping (default 150)
+    """
+    await websocket.accept()
+    logger.info("Replay WebSocket connected (speed=%dms, steps=%d)", speed_ms, total_steps)
+
+    scorer = model_store.get_vae_scorer()
+    n_sensors = len(_SENSOR_NAMES)
+    window_size = scorer.window_size if scorer else 30
+    buf: deque = deque(maxlen=window_size)
+    threshold = float(scorer.threshold) if scorer else 0.05
+
+    rng = np.random.default_rng(42)
+
+    try:
+        step = 0
+        while True:
+            # --- Generate synthetic sensor reading ---
+            # Normalised values: healthy ≈ N(0,1), degradation adds drift
+            t = step % total_steps
+            degradation = max(0.0, (t - 40) / 50.0)   # ramps from 0 → 1 over steps 40–90
+            degradation = min(degradation, 2.0)         # cap at 2× for stability
+
+            reading = rng.normal(0.0, 1.0, n_sensors).tolist()
+            for i, name in enumerate(_SENSOR_NAMES):
+                if name in _DEGRADING_SENSORS:
+                    reading[i] += degradation * rng.normal(1.5, 0.3)
+
+            sensor_dict = {name: round(reading[i], 4) for i, name in enumerate(_SENSOR_NAMES)}
+            buf.append(reading)
+
+            # --- Score ---
+            if scorer is not None and len(buf) == window_size:
+                readings_np = np.array(list(buf), dtype=np.float32)
+                loop = asyncio.get_event_loop()
+                score = await loop.run_in_executor(
+                    None, _score_ts_window, scorer, readings_np
+                )
+            else:
+                # Simulated score: low baseline + degradation signal + noise
+                base = float(rng.exponential(0.005))
+                score = base + degradation * 0.04 + float(rng.normal(0, 0.003))
+                score = max(0.0, score)
+
+            await websocket.send_json({
+                "step": t,
+                "unit_id": 1,
+                "anomaly_score": round(score, 6),
+                "is_anomalous": bool(score > threshold),
+                "threshold": round(threshold, 6),
+                "sensors": sensor_dict,
+                "phase": (
+                    "healthy" if t < 40
+                    else "degrading" if t < 90
+                    else "anomalous"
+                ),
+            })
+
+            await asyncio.sleep(speed_ms / 1000)
+            step += 1
+
+    except WebSocketDisconnect:
+        logger.info("Replay WebSocket disconnected.")
+    except Exception as e:
+        logger.error("Replay WebSocket error: %s", e)
+        await websocket.close(code=1011)
