@@ -28,6 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from sentinel.serving import model_store
 from sentinel.serving.schemas import AnomalyScore, HealthResponse, SensorWindow
+from sentinel.storage.timescale import TimescaleWriter
+
+_db: TimescaleWriter = TimescaleWriter()  # connects lazily; no crash if DB is down
 
 logger = logging.getLogger(__name__)
 
@@ -92,26 +95,83 @@ async def score_timeseries(window: SensorWindow) -> AnomalyScore:
     Body example:
         {"unit_id": 1, "readings": [[641.82, 0.02, ...], ...]}  (30 × 14)
 
-    Inference is CPU-bound, so it runs in a thread pool to avoid blocking the
-    event loop and starving other concurrent requests.
+    Runs champion inference synchronously (returned to client) and challenger
+    inference in the background (logged to TimescaleDB, not returned).
+    Inference is CPU-bound, so both run in thread-pool executors.
     """
     scorer = model_store.get_vae_scorer()
     if scorer is None:
         raise HTTPException(status_code=503, detail="VAE scorer not loaded")
 
-    readings_np = np.array(window.readings, dtype=np.float32)  # [timesteps, sensors]
-
-    # run_in_executor: move the blocking torch inference off the event loop thread
+    readings_np = np.array(window.readings, dtype=np.float32)
     loop = asyncio.get_event_loop()
+
+    # Champion inference — returned to client
     score = await loop.run_in_executor(None, _score_ts_window, scorer, readings_np)
+    is_anomalous = bool(score > scorer.threshold)
+
+    # Persist champion score (fire-and-forget, no crash if DB is down)
+    asyncio.create_task(_write_score_async(
+        unit_id=window.unit_id or 0,
+        model_version="champion",
+        modality="timeseries",
+        score=score,
+        threshold=scorer.threshold,
+        is_anomalous=is_anomalous,
+        is_shadow=False,
+    ))
+
+    # Shadow inference — challenger model, logged only
+    challenger = model_store.get_vae_challenger()
+    if challenger is not None:
+        asyncio.create_task(_run_shadow_async(
+            challenger=challenger,
+            readings_np=readings_np,
+            unit_id=window.unit_id or 0,
+        ))
 
     return AnomalyScore(
         unit_id=window.unit_id,
         anomaly_score=float(score),
-        is_anomalous=bool(score > scorer.threshold),
+        is_anomalous=is_anomalous,
         threshold=float(scorer.threshold),
         modality="timeseries",
     )
+
+
+async def _write_score_async(
+    unit_id: int, model_version: str, modality: str,
+    score: float, threshold: float, is_anomalous: bool, is_shadow: bool,
+) -> None:
+    """Write one anomaly score to TimescaleDB — non-blocking, swallows errors."""
+    try:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: _db.write_anomaly_score(
+                unit_id, model_version, modality, score, threshold, is_anomalous, is_shadow
+            ),
+        )
+    except Exception as exc:
+        logger.debug("TimescaleDB write skipped (%s)", exc)
+
+
+async def _run_shadow_async(challenger, readings_np: np.ndarray, unit_id: int) -> None:
+    """Run challenger inference and log to TimescaleDB (shadow deployment)."""
+    try:
+        loop = asyncio.get_event_loop()
+        shadow_score = await loop.run_in_executor(None, _score_ts_window, challenger, readings_np)
+        await _write_score_async(
+            unit_id=unit_id,
+            model_version="challenger",
+            modality="timeseries",
+            score=shadow_score,
+            threshold=challenger.threshold,
+            is_anomalous=bool(shadow_score > challenger.threshold),
+            is_shadow=True,
+        )
+    except Exception as exc:
+        logger.debug("Shadow inference skipped (%s)", exc)
 
 
 def _score_ts_window(scorer, readings_np: np.ndarray) -> float:
@@ -159,10 +219,21 @@ async def score_audio(file: UploadFile = File(...)) -> AnomalyScore:
     loop = asyncio.get_event_loop()
     score = await loop.run_in_executor(None, _score_audio_bytes, scorer, raw)
 
+    is_anomalous = bool(score > scorer.threshold)
+    asyncio.create_task(_write_score_async(
+        unit_id=0,
+        model_version="ast-v1",
+        modality="audio",
+        score=score,
+        threshold=scorer.threshold,
+        is_anomalous=is_anomalous,
+        is_shadow=False,
+    ))
+
     return AnomalyScore(
         unit_id=None,
         anomaly_score=float(score),
-        is_anomalous=bool(score > scorer.threshold),
+        is_anomalous=is_anomalous,
         threshold=float(scorer.threshold),
         modality="audio",
     )
