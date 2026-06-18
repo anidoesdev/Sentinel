@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Alert, ReplayMessage } from "../types";
 
-const API_HOST = process.env.NEXT_PUBLIC_API_HOST ?? "localhost";
-const WS_URL = `ws://${API_HOST}:8000/ws/replay?speed_ms=500`;
+// NEXT_PUBLIC_API_BASE = "https://api.sentinel.yourdomain.com" in production
+//                      = "http://localhost:8000"              in local dev
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const WS_URL = `${API_BASE.replace(/^http/, "ws")}/ws/replay?speed_ms=500`;
 const MAX_HISTORY = 100;
 const MAX_ALERTS = 15;
 

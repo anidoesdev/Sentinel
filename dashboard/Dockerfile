@@ -8,8 +8,8 @@ RUN npm ci
 COPY . .
 
 # Baked into the client bundle at build time — set via docker-compose build arg
-ARG NEXT_PUBLIC_API_HOST=localhost
-ENV NEXT_PUBLIC_API_HOST=$NEXT_PUBLIC_API_HOST
+ARG NEXT_PUBLIC_API_BASE=http://localhost:8000
+ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 
 RUN npm run build
 

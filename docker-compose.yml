@@ -2,8 +2,7 @@ services:
   # ── Infrastructure ────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # No host port — only the api container needs this, over the Docker network
     volumes:
       - redis_data:/data
     healthcheck:
@@ -14,8 +13,7 @@ services:
 
   timescaledb:
     image: timescale/timescaledb:latest-pg16
-    ports:
-      - "5432:5432"
+    # No host port — only the api container needs this, over the Docker network
     environment:
       POSTGRES_USER: ${DB_USER:-sentinel}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-sentinel}
@@ -35,7 +33,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"   # localhost only — Nginx proxies inbound traffic
     environment:
       DB_HOST: timescaledb
       DB_PORT: 5432
@@ -45,9 +43,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
     volumes:
-      # Model checkpoints — train locally then scp to the Droplet before deploying
       - ./artifacts:/app/artifacts
-      # HuggingFace cache — AST downloads ~500MB on first startup, reused after
       - hf_cache:/cache/huggingface
     depends_on:
       timescaledb:
@@ -62,11 +58,10 @@ services:
       context: ./dashboard
       dockerfile: Dockerfile
       args:
-        # NEXT_PUBLIC_API_HOST is baked into the JS bundle at build time.
-        # Set API_HOST in .env to your Droplet IP before running docker compose up.
-        NEXT_PUBLIC_API_HOST: ${API_HOST:-localhost}
+        # Full base URL of the API — baked into the JS bundle at build time
+        NEXT_PUBLIC_API_BASE: ${API_BASE:-http://localhost:8000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"   # localhost only — Nginx proxies inbound traffic
     depends_on:
       - api
     restart: unless-stopped
