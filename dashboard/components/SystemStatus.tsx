@@ -9,10 +9,10 @@ interface Props {
   error: string | null;
 }
 
-const phaseStyle: Record<string, string> = {
-  healthy: "text-green-400",
-  degrading: "text-yellow-400",
-  anomalous: "text-red-400",
+const phaseInfo: Record<string, { color: string; label: string }> = {
+  healthy:   { color: "#16a34a", label: "HEALTHY" },
+  degrading: { color: "#d97706", label: "DEGRADING" },
+  anomalous: { color: "#dc2626", label: "ANOMALOUS" },
 };
 
 export default function SystemStatus({ connected, latest, error }: Props) {
@@ -31,55 +31,85 @@ export default function SystemStatus({ connected, latest, error }: Props) {
     return () => clearInterval(id);
   }, []);
 
-  const phase = latest?.phase ?? "—";
-  const phaseClass = phaseStyle[phase] ?? "text-slate-400";
+  const phase = latest?.phase ?? null;
+  const info = phase ? (phaseInfo[phase] ?? { color: "#737373", label: phase.toUpperCase() }) : null;
 
   return (
-    <div className="bg-slate-800 rounded-xl px-5 py-4 border border-slate-700 flex flex-wrap items-center gap-6">
-      {/* Connection status */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-2.5 h-2.5 rounded-full ${connected ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-        />
-        <span className="text-slate-300 text-sm">
-          {connected ? "Live" : "Disconnected"}
+    <div className="hmi-panel px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-3">
+      {/* Link status */}
+      <div>
+        <div className="hmi-label mb-1">Link Status</div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-2.5 h-2.5 rounded-full ${connected ? "animate-pulse" : ""}`}
+            style={{ background: connected ? "#16a34a" : "#dc2626" }}
+          />
+          <span
+            className="led font-mono text-sm font-bold"
+            style={{ color: connected ? "#16a34a" : "#dc2626" }}
+          >
+            {connected ? "LIVE" : "FAULT"}
+          </span>
+        </div>
+      </div>
+
+      <div className="w-px h-8 bg-neutral-800 hidden sm:block" />
+
+      {/* Machine phase */}
+      <div>
+        <div className="hmi-label mb-1">Machine Phase</div>
+        {info ? (
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ background: info.color }} />
+            <span className="font-mono text-sm font-bold" style={{ color: info.color }}>
+              {info.label}
+            </span>
+          </div>
+        ) : (
+          <span className="hmi-label">—</span>
+        )}
+      </div>
+
+      <div className="w-px h-8 bg-neutral-800 hidden sm:block" />
+
+      {/* Step counter */}
+      <div>
+        <div className="hmi-label mb-1">Step Counter</div>
+        <span className="led font-mono text-sm font-bold text-neutral-300">
+          {latest ? String(latest.step).padStart(6, "0") : "------"}
         </span>
       </div>
 
-      {/* Current phase */}
-      <div className="text-sm">
-        <span className="text-slate-400">Phase: </span>
-        <span className={`font-semibold uppercase ${phaseClass}`}>{phase}</span>
-      </div>
-
-      {/* Step counter */}
-      {latest && (
-        <div className="text-sm font-mono">
-          <span className="text-slate-400">Step: </span>
-          <span className="text-slate-200">{latest.step}</span>
-        </div>
-      )}
-
-      {/* Model status from /health */}
+      {/* Models */}
       {health && (
-        <div className="flex items-center gap-3 ml-auto">
-          {["vae", "audio"].map((m) => (
-            <span
-              key={m}
-              className={`text-xs px-2 py-0.5 rounded-full border font-mono ${
-                health.models_loaded.includes(m)
-                  ? "bg-green-900 text-green-300 border-green-700"
-                  : "bg-slate-700 text-slate-400 border-slate-600"
-              }`}
-            >
-              {m.toUpperCase()}
-            </span>
-          ))}
-        </div>
+        <>
+          <div className="w-px h-8 bg-neutral-800 hidden sm:block" />
+          <div>
+            <div className="hmi-label mb-1">Models Online</div>
+            <div className="flex items-center gap-2">
+              {["vae", "audio"].map((m) => (
+                <span
+                  key={m}
+                  className="font-mono text-xs px-2 py-0.5 border"
+                  style={
+                    health.models_loaded.includes(m)
+                      ? { color: "#16a34a", borderColor: "#16a34a55", background: "#0a1a0c" }
+                      : { color: "#525252", borderColor: "#262626", background: "#141414" }
+                  }
+                >
+                  {m.toUpperCase()}
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {error && (
-        <p className="text-red-400 text-xs ml-auto">{error}</p>
+        <div className="ml-auto">
+          <div className="hmi-label mb-1">System Error</div>
+          <p className="font-mono text-xs text-red-400">{error}</p>
+        </div>
       )}
     </div>
   );

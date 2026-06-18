@@ -6,49 +6,55 @@ interface Props {
   alerts: Alert[];
 }
 
-const phaseLabel: Record<string, { label: string; classes: string }> = {
-  degrading: { label: "DEGRADING", classes: "bg-yellow-900 text-yellow-300 border-yellow-700" },
-  anomalous: { label: "ANOMALOUS", classes: "bg-red-900 text-red-300 border-red-700" },
+const phaseLabel: Record<string, { label: string; color: string }> = {
+  degrading: { label: "DEGRADING", color: "#d97706" },
+  anomalous: { label: "ANOMALOUS", color: "#dc2626" },
 };
 
 export default function AlertFeed({ alerts }: Props) {
   return (
-    <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 flex flex-col">
-      <h2 className="text-slate-200 font-semibold text-sm tracking-wide uppercase mb-4">
-        Anomaly Alerts
+    <div className="hmi-panel p-5 flex flex-col h-full">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <div className="hmi-label mb-0.5">Channel 02</div>
+          <h2 className="font-mono font-semibold text-sm tracking-widest uppercase text-neutral-200">
+            Alert Log
+          </h2>
+        </div>
         {alerts.length > 0 && (
-          <span className="ml-2 bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">
-            {alerts.length}
+          <span className="led font-mono text-sm font-bold text-red-500 border border-red-900 px-2 py-0.5">
+            {String(alerts.length).padStart(2, "0")}
           </span>
         )}
-      </h2>
+      </div>
 
       {alerts.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
-          No anomalies detected
+        <div className="flex-1 flex items-center justify-center">
+          <span className="hmi-label text-center leading-7">
+            NO ANOMALIES<br />DETECTED
+          </span>
         </div>
       ) : (
-        <ul className="space-y-2 overflow-y-auto max-h-64">
+        <ul className="space-y-1.5 overflow-y-auto max-h-64">
           {alerts.map((a) => {
             const meta = phaseLabel[a.phase] ?? phaseLabel.anomalous;
             return (
               <li
                 key={a.id}
-                className="flex items-center justify-between rounded-lg bg-slate-900 px-3 py-2 border border-slate-700"
+                className="flex items-center justify-between px-3 py-2 border border-neutral-800"
+                style={{ borderLeft: `3px solid ${meta.color}` }}
               >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded border ${meta.classes}`}
-                  >
+                <div>
+                  <div className="font-mono text-xs font-bold" style={{ color: meta.color }}>
                     {meta.label}
-                  </span>
-                  <span className="text-slate-400 text-xs font-mono">step {a.step}</span>
+                  </div>
+                  <div className="hmi-label mt-0.5">STEP {a.step}</div>
                 </div>
                 <div className="text-right">
-                  <span className="text-red-400 font-mono text-sm font-bold">
+                  <div className="led font-mono text-sm font-bold text-red-400">
                     {a.score.toFixed(4)}
-                  </span>
-                  <div className="text-slate-500 text-xs">{a.timestamp}</div>
+                  </div>
+                  <div className="hmi-label mt-0.5">{a.timestamp}</div>
                 </div>
               </li>
             );

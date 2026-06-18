@@ -18,9 +18,9 @@ interface Props {
 }
 
 const phaseColor: Record<string, string> = {
-  healthy: "#22c55e",
-  degrading: "#f59e0b",
-  anomalous: "#ef4444",
+  healthy: "#16a34a",
+  degrading: "#d97706",
+  anomalous: "#dc2626",
 };
 
 export default function AnomalyChart({ history, threshold }: Props) {
@@ -31,21 +31,24 @@ export default function AnomalyChart({ history, threshold }: Props) {
   }));
 
   const latest = history[history.length - 1];
-  const dotColor = latest ? (phaseColor[latest.phase] ?? "#94a3b8") : "#94a3b8";
+  const dotColor = latest ? (phaseColor[latest.phase] ?? "#737373") : "#737373";
 
   return (
-    <div className="bg-slate-800 rounded-xl p-5 border border-slate-700">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-slate-200 font-semibold text-sm tracking-wide uppercase">
-          Live Anomaly Score
-        </h2>
+    <div className="hmi-panel p-5">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <div className="hmi-label mb-0.5">Channel 01</div>
+          <h2 className="font-mono font-semibold text-sm tracking-widest uppercase text-neutral-200">
+            Anomaly Score
+          </h2>
+        </div>
         {latest && (
-          <span
-            className="text-2xl font-mono font-bold"
-            style={{ color: dotColor }}
-          >
-            {latest.anomaly_score.toFixed(4)}
-          </span>
+          <div className="text-right">
+            <div className="hmi-label mb-0.5">Live Reading</div>
+            <span className="led text-2xl font-bold" style={{ color: dotColor }}>
+              {latest.anomaly_score.toFixed(4)}
+            </span>
+          </div>
         )}
       </div>
 
@@ -53,34 +56,44 @@ export default function AnomalyChart({ history, threshold }: Props) {
         <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
               <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#1f1f1f" />
           <XAxis
             dataKey="step"
-            tick={{ fill: "#64748b", fontSize: 11 }}
+            tick={{ fill: "#525252", fontSize: 11, fontFamily: "var(--font-geist-mono)" }}
             tickLine={false}
-            axisLine={false}
-            label={{ value: "Step", position: "insideBottomRight", fill: "#64748b", fontSize: 11 }}
+            axisLine={{ stroke: "#262626" }}
+            label={{ value: "STEP", position: "insideBottomRight", fill: "#525252", fontSize: 10 }}
           />
           <YAxis
-            tick={{ fill: "#64748b", fontSize: 11 }}
+            tick={{ fill: "#525252", fontSize: 11, fontFamily: "var(--font-geist-mono)" }}
             tickLine={false}
-            axisLine={false}
+            axisLine={{ stroke: "#262626" }}
             width={50}
           />
           <Tooltip
-            contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
-            labelStyle={{ color: "#94a3b8" }}
-            itemStyle={{ color: "#f1f5f9" }}
+            contentStyle={{
+              background: "#0d0d0d",
+              border: "1px solid #3b82f6",
+              borderRadius: 0,
+            }}
+            labelStyle={{ color: "#737373", fontFamily: "var(--font-geist-mono)", fontSize: 11 }}
+            itemStyle={{ color: "#d4d4d4", fontFamily: "var(--font-geist-mono)" }}
           />
           <ReferenceLine
             y={threshold}
-            stroke="#ef4444"
+            stroke="#dc2626"
             strokeDasharray="6 3"
-            label={{ value: "threshold", fill: "#ef4444", fontSize: 10, position: "right" }}
+            label={{
+              value: "THRESH",
+              fill: "#dc2626",
+              fontSize: 10,
+              position: "right",
+              fontFamily: "var(--font-geist-mono)",
+            }}
           />
           <Area
             type="monotone"

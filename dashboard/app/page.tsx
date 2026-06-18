@@ -12,15 +12,24 @@ export default function Dashboard() {
   const threshold = latest?.threshold ?? 0.05;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6">
+    <div className="min-h-screen p-6">
       {/* Header */}
-      <header className="mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-8 bg-blue-500 rounded-full" />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">SENTINEL</h1>
-            <p className="text-slate-400 text-sm">Real-Time Multimodal Anomaly Detection</p>
+      <header className="mb-6 flex items-stretch gap-4">
+        <div className="w-1 bg-blue-500" />
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-[0.2em] font-mono text-white">
+              SENTINEL
+            </h1>
+            <span className="font-mono text-xs text-blue-400 border border-blue-900 px-2 py-0.5">
+              v0.1
+            </span>
           </div>
+          <p className="hmi-label mt-1">Real-Time Multimodal Anomaly Detection System</p>
+        </div>
+        <div className="text-right self-center">
+          <div className="hmi-label">Unit ID</div>
+          <div className="font-mono text-sm text-neutral-300 mt-0.5">SEN-001</div>
         </div>
       </header>
 
@@ -31,25 +40,21 @@ export default function Dashboard() {
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Anomaly score chart — spans 2 cols on large screens */}
         <div className="lg:col-span-2">
           <AnomalyChart history={history} threshold={threshold} />
         </div>
-
-        {/* Alert feed */}
         <div>
           <AlertFeed alerts={alerts} />
         </div>
-
-        {/* Sensor health grid — full width */}
         <div className="lg:col-span-3">
           <SensorGrid latest={latest} />
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="mt-8 text-center text-slate-600 text-xs">
-        SENTINEL v0.1 · VAE + Gaussian Ensemble · AST Audio · SHAP/IG Explanations
+      {/* Footer status line */}
+      <footer className="mt-8 border-t border-neutral-800 pt-3 flex items-center justify-between">
+        <span className="hmi-label">SENTINEL Industrial Monitor</span>
+        <span className="hmi-label">VAE · GAUSSIAN ENSEMBLE · AST AUDIO · SHAP/IG</span>
       </footer>
     </div>
   );
