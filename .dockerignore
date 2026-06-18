@@ -1,0 +1,28 @@
+# Data and model artifacts — mount as volume at runtime
+data/
+mlruns/
+mlflow.db
+
+# Dev/test
+tests/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Dashboard (built by its own Dockerfile)
+dashboard/
+
+# Infra docs (not needed in the image)
+*.md
+
+# Git
+.git/
+.gitignore
+
+# Env files
+.env
+.env.*

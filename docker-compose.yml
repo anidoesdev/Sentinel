@@ -1,4 +1,5 @@
 services:
+  # ── Infrastructure ────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
@@ -16,18 +17,61 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: sentinel
-      POSTGRES_PASSWORD: sentinel
-      POSTGRES_DB: sentinel
+      POSTGRES_USER: ${DB_USER:-sentinel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sentinel}
+      POSTGRES_DB: ${DB_NAME:-sentinel}
     volumes:
       - timescale_data:/var/lib/postgresql/data
       - ./infra/init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sentinel"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sentinel}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  # ── API server ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-sentinel}
+      DB_PASSWORD: ${DB_PASSWORD:-sentinel}
+      DB_NAME: ${DB_NAME:-sentinel}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      # Model checkpoints — train locally then scp to the Droplet before deploying
+      - ./artifacts:/app/artifacts
+      # HuggingFace cache — AST downloads ~500MB on first startup, reused after
+      - hf_cache:/cache/huggingface
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Next.js dashboard ─────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_API_HOST is baked into the JS bundle at build time.
+        # Set API_HOST in .env to your Droplet IP before running docker compose up.
+        NEXT_PUBLIC_API_HOST: ${API_HOST:-localhost}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   redis_data:
   timescale_data:
+  hf_cache:

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Alert, ReplayMessage } from "../types";
 
-const WS_URL = "ws://localhost:8000/ws/replay?speed_ms=500";
+const API_HOST = process.env.NEXT_PUBLIC_API_HOST ?? "localhost";
+const WS_URL = `ws://${API_HOST}:8000/ws/replay?speed_ms=500`;
 const MAX_HISTORY = 100;
 const MAX_ALERTS = 15;
 

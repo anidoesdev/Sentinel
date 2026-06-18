@@ -19,8 +19,9 @@ export default function SystemStatus({ connected, latest, error }: Props) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
+    const apiHost = process.env.NEXT_PUBLIC_API_HOST ?? "localhost";
     const check = () =>
-      fetch("http://localhost:8000/health")
+      fetch(`http://${apiHost}:8000/health`)
         .then((r) => r.json())
         .then(setHealth)
         .catch(() => setHealth(null));

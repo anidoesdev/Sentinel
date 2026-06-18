@@ -15,22 +15,33 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Generator
 
+import os
+
 import psycopg2
 import psycopg2.extras
 from psycopg2.extensions import connection as PgConnection
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_DSN = (
-    "host=localhost port=5432 dbname=sentinel user=sentinel password=sentinel"
-)
-
 
 class TimescaleWriter:
     """Thin wrapper around psycopg2 for writing SENTINEL events to TimescaleDB."""
 
-    def __init__(self, dsn: str = _DEFAULT_DSN) -> None:
-        self.dsn = dsn
+    def __init__(
+        self,
+        host: str | None = None,
+        port: int | None = None,
+        dbname: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+    ) -> None:
+        self.dsn = (
+            f"host={host or os.getenv('DB_HOST', 'localhost')} "
+            f"port={port or os.getenv('DB_PORT', '5432')} "
+            f"dbname={dbname or os.getenv('DB_NAME', 'sentinel')} "
+            f"user={user or os.getenv('DB_USER', 'sentinel')} "
+            f"password={password or os.getenv('DB_PASSWORD', 'sentinel')}"
+        )
         self._conn: PgConnection | None = None
 
     def connect(self) -> None:
