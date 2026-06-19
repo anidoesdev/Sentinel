@@ -69,8 +69,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--save-scorer",
         type=Path,
-        default=None,
-        help="If set, save the fitted scorer to this path (e.g. artifacts/audio/scorer.pkl)",
+        default=Path("artifacts/audio/scorer.pkl"),
+        help="Save the fitted scorer to this path (default: artifacts/audio/scorer.pkl). Pass empty string to skip.",
     )
     return p.parse_args()
 
@@ -121,8 +121,10 @@ def main() -> None:
         logger.info("Overriding threshold: %.2f → %.2f", scorer.threshold, args.threshold)
         scorer.threshold = args.threshold
 
-    if args.save_scorer is not None:
+    if args.save_scorer and str(args.save_scorer):
+        args.save_scorer.parent.mkdir(parents=True, exist_ok=True)
         scorer.save(args.save_scorer)
+        logger.info("Scorer saved to %s", args.save_scorer)
 
     logger.info("Scoring test set...")
     scores, true_labels = scorer.score(test_loader)
