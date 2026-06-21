@@ -421,7 +421,8 @@ async def ws_replay(
                     reading[i] += degradation * sensor_std[i] * 2.0
             reading = reading.tolist()
 
-            sensor_dict = {name: round(reading[i], 4) for i, name in enumerate(_SENSOR_NAMES)}
+            z_scores = (np.array(reading, dtype=np.float32) - sensor_mean) / (sensor_std + 1e-8)
+            sensor_dict = {name: round(float(z_scores[i]), 4) for i, name in enumerate(_SENSOR_NAMES)}
             buf.append(reading)
 
             # --- Score ---
