@@ -392,21 +392,34 @@ async def ws_replay(
     buf: deque = deque(maxlen=window_size)
     threshold = float(scorer.threshold) if scorer else 0.05
 
+    # Use training statistics as the healthy operating baseline so the synthetic
+    # readings are in the same scale the VAE was trained on. Without this,
+    # N(0,1) values fed into a model trained on raw CMAPSS (sensor_2 ≈ 641)
+    # produce enormous normalisation residuals and useless anomaly scores.
+    if scorer is not None:
+        sensor_mean = scorer.mean.values[:n_sensors].astype(np.float32)
+        sensor_std  = scorer.std.values[:n_sensors].astype(np.float32)
+    else:
+        sensor_mean = np.zeros(n_sensors, dtype=np.float32)
+        sensor_std  = np.ones(n_sensors, dtype=np.float32)
+
     rng = np.random.default_rng(42)
 
     try:
         step = 0
         while True:
-            # --- Generate synthetic sensor reading ---
-            # Normalised values: healthy ≈ N(0,1), degradation adds drift
+            # --- Generate synthetic sensor reading in raw sensor scale ---
             t = step % total_steps
-            degradation = max(0.0, (t - 40) / 50.0)   # ramps from 0 → 1 over steps 40–90
-            degradation = min(degradation, 2.0)         # cap at 2× for stability
+            degradation = max(0.0, (t - 40) / 50.0)   # ramps 0→1 over steps 40-90
+            degradation = min(degradation, 2.0)
 
-            reading = rng.normal(0.0, 1.0, n_sensors).tolist()
+            # Healthy baseline: mean ± 0.3σ noise
+            reading = sensor_mean + rng.normal(0.0, sensor_std * 0.3, n_sensors)
+            # Degrading sensors drift by up to 2σ above healthy mean
             for i, name in enumerate(_SENSOR_NAMES):
                 if name in _DEGRADING_SENSORS:
-                    reading[i] += degradation * rng.normal(1.5, 0.3)
+                    reading[i] += degradation * sensor_std[i] * 2.0
+            reading = reading.tolist()
 
             sensor_dict = {name: round(reading[i], 4) for i, name in enumerate(_SENSOR_NAMES)}
             buf.append(reading)
@@ -419,7 +432,7 @@ async def ws_replay(
                     None, _score_ts_window, scorer, readings_np
                 )
             else:
-                # Simulated score: low baseline + degradation signal + noise
+                # Simulated score when no model is loaded
                 base = float(rng.exponential(0.005))
                 score = base + degradation * 0.04 + float(rng.normal(0, 0.003))
                 score = max(0.0, score)
