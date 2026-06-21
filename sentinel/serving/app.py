@@ -175,7 +175,13 @@ async def _run_shadow_async(challenger, readings_np: np.ndarray, unit_id: int) -
 
 
 def _score_ts_window(scorer, readings_np: np.ndarray) -> float:
-    """Blocking inference — called inside run_in_executor."""
+    """Blocking inference — called inside run_in_executor.
+
+    Mirrors VAEAnomalyScorer._score_windows exactly:
+      - adds delta features when use_delta_features=True
+      - normalises with training mean/std over all feature cols
+      - uses deterministic mu-encoding (no reparameterize sampling)
+    """
     window_size = scorer.window_size
     n_sensors = len(scorer.sensor_cols)
 
@@ -185,19 +191,22 @@ def _score_ts_window(scorer, readings_np: np.ndarray) -> float:
             f"got {readings_np.shape}"
         )
 
-    # Normalize using training mean/std
+    # Build feature matrix: raw sensors + cycle-to-cycle deltas (if trained with them)
+    features = readings_np.copy()
+    if scorer.use_delta_features:
+        deltas = np.vstack([
+            np.zeros((1, n_sensors), dtype=np.float32),
+            np.diff(readings_np, axis=0),
+        ])
+        features = np.concatenate([features, deltas], axis=1)  # [window_size, 28]
+
     mean = scorer.mean.values.astype(np.float32)
     std = scorer.std.values.astype(np.float32)
-    normalized = (readings_np - mean) / (std + 1e-8)
+    normalized = (features - mean) / (std + 1e-8)
 
-    x = torch.from_numpy(normalized).unsqueeze(0)  # [1, window_size, n_sensors]
-    x = x.permute(0, 2, 1)                          # [1, n_sensors, window_size] for Conv1d
-
-    scorer.model.eval()
-    with torch.no_grad():
-        x_hat, _, _ = scorer.model(x)
-        error = torch.mean((x - x_hat) ** 2).item()
-    return error
+    # Delegate to the scorer's own deterministic scoring path
+    window = normalized[np.newaxis].astype(np.float32)  # [1, window_size, n_features]
+    return float(scorer._score_windows(window)[0])
 
 
 # ---------------------------------------------------------------------------
